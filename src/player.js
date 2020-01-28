@@ -1,7 +1,7 @@
 import { isKeyPressed, isKeyDown } from "./input";
 
 const GRAVITY_ACCELERATION = 1;
-const FRAMES_PER_ANIMATION_FRAME = 60;
+const FRAMES_PER_ANIMATION_FRAME = 8;
 
 class Player {
     constructor(x, y) {
@@ -10,13 +10,13 @@ class Player {
         this.radius = 30;
         this.velocity = 0;
 
-        this.runSpeed = 2;
+        this.runSpeed = 4;
         this.climbSpeed = 4;
 
         this.state = "walking";
         
         this.idleAnimation = [0];
-        this.runAnimation = [1, 2, 3];
+        this.runAnimation = [1, 2, 3, 0];
         this.jumpAnimation = [0];
         
         this.frame = 0;
