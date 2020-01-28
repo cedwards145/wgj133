@@ -1,9 +1,9 @@
 import { setup, clearPressedKeys, isKeyDown, isKeyPressed } from "./input";
+import { Player } from "./player";
 
 const WIDTH = 1280;
 const HEIGHT = 720;
 
-const GRAVITY_ACCELERATION = 1;
 const GROUND_TAG = "GROUND";
 const WALL_TAG = "WALL";
 
@@ -22,13 +22,7 @@ sprites.onload = function() {
 }
 sprites.src = "./sprites.png";
 
-const player = {
-    x: WIDTH / 2,
-    y: HEIGHT / 2,
-    radius: 15,
-    velocity: 0,
-    state: "walking"
-};
+const player = new Player(WIDTH / 2, HEIGHT / 2);
 
 const walls = [
     { x: 0, y: HEIGHT / 2, width: 30, height: HEIGHT, tag: WALL_TAG },
@@ -43,49 +37,15 @@ function tick(timestamp) {
 }
 
 function update() {
-    if (isKeyPressed(32)) {
-        player.velocity = -20;
-        player.state = "walking";
-    }
-
-    if (player.state === "walking") {
-        if (isKeyDown(68)) {
-            player.x += 6;
-        }
-        else if (isKeyDown(65)) {
-            player.x -= 6;
-        }
-
-        // Gravity
-        player.velocity += GRAVITY_ACCELERATION;
-        player.y += player.velocity;
-    }
-    else if (player.state === "climbing") {
-        if (isKeyDown(87)) {
-            player.y -= 4;
-        }
-        else if (isKeyDown(83)) {
-            player.y += 4;
-        }
-    }
+    player.update();
 
     walls.forEach(function(wall) {
         if (checkCollision(player, wall)) {
             if (wall.tag === GROUND_TAG) {
-                player.velocity = 0;
-                player.y = (wall.y - (wall.height / 2)) - player.radius;
-                if (player.state === "climbing") {
-                    player.state = "walking";
-                }
+                player.collideWithGround(wall);
             }
             else if (wall.tag === WALL_TAG) {
-                if (player.x > wall.x) {
-                    player.x = wall.x + wall.width / 2 + player.radius;
-                }
-                else {
-                    player.x = wall.x - wall.width / 2 - player.radius;
-                }
-                player.state = "climbing";
+                player.collideWithWall(wall);
             }
         }
     });
@@ -98,11 +58,7 @@ function draw() {
     context.fillRect(0, 0, WIDTH, HEIGHT);
     
     // Draw player
-    context.fillStyle = "#FFFFFF";
-    context.fillRect(player.x - player.radius, 
-                     player.y - player.radius, 
-                     player.radius * 2, 
-                     player.radius * 2);
+    player.draw(context, sprites);
     
     // Draw environment
     context.fillStyle = "#000000";
