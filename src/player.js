@@ -2,6 +2,7 @@ import { isKeyPressed, isKeyDown } from "./input";
 
 const GRAVITY_ACCELERATION = 1;
 const FRAMES_PER_ANIMATION_FRAME = 8;
+const FRAMES_PER_ROW = 8;
 
 class Player {
     constructor(x, y) {
@@ -18,6 +19,7 @@ class Player {
         this.idleAnimation = [0];
         this.runAnimation = [1, 2, 3, 0];
         this.jumpAnimation = [0];
+        this.attackAnimation = [8, 9, 10, 11, 12, 13, 14, 15, 16];
         
         this.frame = 0;
         this.setAnimation(this.idleAnimation);
@@ -31,7 +33,11 @@ class Player {
         }
     
         if (this.state === "walking") {
-            if (isKeyDown(68)) {
+            if (isKeyPressed(69)) {
+                this.state = "attacking";
+                this.setAnimation(this.attackAnimation);
+            }
+            else if (isKeyDown(68)) {
                 this.x += this.runSpeed;
                 this.setAnimation(this.runAnimation);
             }
@@ -59,6 +65,11 @@ class Player {
         }
 
         this.frame = (this.frame + 1) % (this.animation.length * FRAMES_PER_ANIMATION_FRAME);
+
+        if (this.state === "attacking" && this.frame === 0) {
+            this.state = "walking";
+            this.setAnimation(this.idleAnimation);
+        }
     }
 
     setAnimation(newAnimation) {
@@ -70,8 +81,10 @@ class Player {
 
     draw(context, sprites) {
         const animationFrame = this.animation[Math.floor(this.frame / FRAMES_PER_ANIMATION_FRAME)];
-        console.log(animationFrame);
-        context.drawImage(sprites, animationFrame * 64, 0, 64, 64, 
+        const xOffset = animationFrame % FRAMES_PER_ROW;
+        const yOffset = Math.floor(animationFrame / FRAMES_PER_ROW);
+
+        context.drawImage(sprites, xOffset * 64, yOffset * 64, 64, 64, 
                           this.x - 32, this.y - 32, 64, 64);
     }
 
