@@ -1,4 +1,5 @@
 import { isKeyPressed, isKeyDown } from "./input";
+import { shakeScreen, getEnemies } from ".";
 
 const GRAVITY_ACCELERATION = 1;
 const FRAMES_PER_ANIMATION_FRAME = 8;
@@ -8,13 +9,23 @@ class Player {
     constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.radius = 30;
+        this.radius = 32;
         this.velocity = 0;
 
         this.runSpeed = 4;
         this.climbSpeed = 4;
 
         this.state = "walking";
+        this.attackEnabled = false;
+        this.attackCollisionOffset = {
+            x: 22,
+            y: 32
+        };
+        this.attackCollision = {
+            x: x,
+            y: y,
+            radius: 32
+        };
         
         this.idleAnimation = [0];
         this.runAnimation = [1, 2, 3, 0];
@@ -63,12 +74,31 @@ class Player {
                 this.setAnimation(this.runAnimation);
             }
         }
+        this.attackCollision.x = this.x + this.attackCollisionOffset.x;
+        this.attackCollision.y = this.y + this.attackCollisionOffset.y;
 
         this.frame = (this.frame + 1) % (this.animation.length * FRAMES_PER_ANIMATION_FRAME);
 
-        if (this.state === "attacking" && this.frame === 0) {
-            this.state = "walking";
-            this.setAnimation(this.idleAnimation);
+        if (this.state === "attacking") {
+            if (this.frame === 0) {
+                this.state = "walking";
+                this.setAnimation(this.idleAnimation);
+            }
+            else if (this.frame === 4 * FRAMES_PER_ANIMATION_FRAME) {
+                this.attackEnabled = true;
+                shakeScreen(2, FRAMES_PER_ANIMATION_FRAME * 2);
+            }
+            else if (this.frame === 5 * FRAMES_PER_ANIMATION_FRAME) {
+                this.attackEnabled = false;
+            }
+        }
+
+        if (this.attackEnabled) {
+            const player = this;
+            const enemies = getEnemies();
+            enemies.forEach(function(enemy) {
+                enemy.checkCollision(player.attackCollision);
+            });
         }
     }
 
@@ -86,8 +116,24 @@ class Player {
 
         context.drawImage(sprites, xOffset * 64, yOffset * 64, 64, 64, 
                           this.x - 32, this.y - 32, 64, 64);
-    }
 
+        /* Debug view to draw collision boxes
+        context.fillStyle = "#FF0000";
+        context.beginPath();
+        context.ellipse(this.x, this.y, this.radius, this.radius, 0, 0, 360);
+        context.closePath();
+        context.fill();
+        
+        if (this.attackEnabled) {
+            context.fillStyle = "#FF0000";
+            context.beginPath();
+            context.ellipse(this.attackCollision.x, this.attackCollision.y, this.attackCollision.radius, this.attackCollision.radius, 0, 0, 360);
+            context.closePath();
+            context.fill();
+        }
+        */
+    }
+    
     collideWithWall(wall) {
         if (this.x > wall.x) {
             this.x = wall.x + wall.width / 2 + this.radius;
