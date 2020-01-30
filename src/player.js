@@ -1,7 +1,7 @@
 import { isKeyPressed, isKeyDown } from "./input";
 import { shakeScreen, getEnemies } from ".";
 
-const GRAVITY_ACCELERATION = 1;
+const GRAVITY_ACCELERATION = 0.5;
 const FRAMES_PER_ANIMATION_FRAME = 8;
 const FRAMES_PER_ROW = 8;
 
@@ -27,10 +27,41 @@ class Player {
             radius: 32
         };
         
-        this.idleAnimation = [0];
-        this.runAnimation = [1, 2, 3, 0];
-        this.jumpAnimation = [0];
-        this.attackAnimation = [8, 9, 10, 11, 12, 13, 14, 15, 16];
+        this.idleAnimation = { 
+            frames: [0], 
+            repeat: true,
+            events: []
+        };
+        this.runAnimation = { 
+            frames: [1, 2, 3, 0], 
+            repeat: true ,
+            events: []
+        };
+        this.jumpAnimation = {
+            frames: [0],
+            repeat: true,
+            events: []
+        };
+        this.attackWindupAnimation = { 
+            frames: [8, 9, 10, 11],
+            repeat: false,
+            events: [{
+                frame: 3 * FRAMES_PER_ANIMATION_FRAME,
+                action: (player) => {
+                    player.endWindup();
+                }
+            }]
+        };
+        this.attackAnimation = {
+            frames: [12, 13, 14, 15, 16],
+            repeat: false,
+            events: [{
+                frame: 4 * FRAMES_PER_ANIMATION_FRAME,
+                action: (player) => {
+                    player.endAttack();
+                }
+            }]
+        };
         
         this.frame = 0;
         this.setAnimation(this.idleAnimation);
@@ -38,15 +69,15 @@ class Player {
 
     update() {
         if (isKeyPressed(32)) {
-            this.velocity = -20;
+            this.velocity = -10;
             this.state = "walking";
             this.setAnimation(this.jumpAnimation);
         }
     
         if (this.state === "walking") {
             if (isKeyPressed(69)) {
-                this.state = "attacking";
-                this.setAnimation(this.attackAnimation);
+                this.state = "windup";
+                this.setAnimation(this.attackWindupAnimation);
             }
             else if (isKeyDown(68)) {
                 this.x += this.runSpeed;
@@ -59,10 +90,6 @@ class Player {
             else {
                 this.setAnimation(this.idleAnimation);
             }
-    
-            // Gravity
-            this.velocity += GRAVITY_ACCELERATION;
-            this.y += this.velocity;
         }
         else if (this.state === "climbing") {
             if (isKeyDown(87)) {
@@ -74,32 +101,45 @@ class Player {
                 this.setAnimation(this.runAnimation);
             }
         }
+        
+        if (this.state !=="climbing") {
+            // Gravity
+            this.velocity += GRAVITY_ACCELERATION;
+            this.y += this.velocity;
+        }
+
         this.attackCollision.x = this.x + this.attackCollisionOffset.x;
         this.attackCollision.y = this.y + this.attackCollisionOffset.y;
 
-        this.frame = (this.frame + 1) % (this.animation.length * FRAMES_PER_ANIMATION_FRAME);
+        this.frame++;
 
-        if (this.state === "attacking") {
-            if (this.frame === 0) {
-                this.state = "walking";
-                this.setAnimation(this.idleAnimation);
+        const player = this;
+        this.animation.events.forEach(function (event) {
+            if (event.frame === player.frame) {
+                event.action(player);
             }
-            else if (this.frame === 4 * FRAMES_PER_ANIMATION_FRAME) {
-                this.attackEnabled = true;
-                shakeScreen(2, FRAMES_PER_ANIMATION_FRAME * 2);
-            }
-            else if (this.frame === 5 * FRAMES_PER_ANIMATION_FRAME) {
-                this.attackEnabled = false;
-            }
-        }
+        });
 
         if (this.attackEnabled) {
-            const player = this;
             const enemies = getEnemies();
             enemies.forEach(function(enemy) {
                 enemy.checkCollision(player.attackCollision);
             });
         }
+
+        // Reset animation if finished
+        if (this.hasFinishedAnimation()) {
+            if (this.animation.repeat) {
+                this.frame = 0;
+            }
+            else {
+                this.frame--;
+            }
+        }
+    }
+    
+    hasFinishedAnimation() {
+        return this.frame === this.animation.frames.length * FRAMES_PER_ANIMATION_FRAME;
     }
 
     setAnimation(newAnimation) {
@@ -109,8 +149,27 @@ class Player {
         this.animation = newAnimation;
     }
 
+    endWindup() {
+        this.attackEnabled = true;
+    }
+
+    endAttack() {
+        this.state = "walking";
+        this.attackEnabled = false;
+        this.setAnimation(this.idleAnimation);
+    }
+
+    attack() {
+        if (this.state === "windup" && this.attackEnabled) {
+            console.log(this.velocity);
+            this.state = "attacking";
+            shakeScreen(this.velocity * 1.5, FRAMES_PER_ANIMATION_FRAME * 2 * Math.max(1, this.velocity / 15));
+            this.setAnimation(this.attackAnimation);
+        }
+    }
+
     draw(context, sprites) {
-        const animationFrame = this.animation[Math.floor(this.frame / FRAMES_PER_ANIMATION_FRAME)];
+        const animationFrame = this.animation.frames[Math.floor(this.frame / FRAMES_PER_ANIMATION_FRAME)];
         const xOffset = animationFrame % FRAMES_PER_ROW;
         const yOffset = Math.floor(animationFrame / FRAMES_PER_ROW);
 
@@ -145,11 +204,13 @@ class Player {
     }
 
     collideWithGround(ground) {
-        this.velocity = 0;
         this.y = (ground.y - (ground.height / 2)) - this.radius;
         if (this.state === "climbing") {
             this.state = "walking";
         }
+        
+        this.attack();
+        this.velocity = 0;
     }
 }
 
